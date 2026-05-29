@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0a0f">
+<title>TicketScan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0a0a0f;
+  --bg2: #12121a;
+  --bg3: #1c1c28;
+  --surface: #1e1e2e;
+  --surface2: #252538;
+  --border: rgba(255,255,255,0.08);
+  --border2: rgba(255,255,255,0.14);
+  --accent: #7c6af7;
+  --accent2: #a78bfa;
+  --green: #34d399;
+  --amber: #fbbf24;
+  --red: #f87171;
+  --text: #f1f0ff;
+  --text2: #9b9ab8;
+  --text3: #5a5a78;
+  --mono: 'DM Mono', monospace;
+  --sans: 'DM Sans', sans-serif;
+  --r: 16px;
+  --r2: 24px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: var(--sans); }
+body { display: flex; flex-direction: column; }
+
+/* ── SCREENS ── */
+.screen { display: none; flex-direction: column; height: 100vh; overflow: hidden; animation: fadeIn .25s ease; }
+.screen.active { display: flex; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* ── HEADER ── */
+.header {
+  padding: 52px 20px 16px;
+  background: linear-gradient(to bottom, var(--bg) 60%, transparent);
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+}
+.header-row { display: flex; align-items: center; justify-content: space-between; }
+.app-name { font-size: 22px; font-weight: 600; letter-spacing: -0.5px; }
+.app-name span { color: var(--accent2); }
+.header-btn { width: 38px; height: 38px; border-radius: 12px; background: var(--surface); border: 0.5px solid var(--border2); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.header-btn svg { width: 18px; height: 18px; stroke: var(--text2); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ── STATS BAR ── */
+.stats-bar {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 8px;
+  padding: 0 20px 16px;
+  flex-shrink: 0;
+}
+.stat { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r); padding: 12px; }
+.stat-val { font-size: 17px; font-weight: 600; font-family: var(--mono); color: var(--text); }
+.stat-lbl { font-size: 10px; color: var(--text3); margin-top: 2px; text-transform: uppercase; letter-spacing: .06em; }
+
+/* ── LIST ── */
+.list-wrap { flex: 1; overflow-y: auto; padding: 0 20px 100px; -webkit-overflow-scrolling: touch; }
+.month-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .1em; padding: 16px 0 8px; }
+.ticket-card {
+  background: var(--surface);
+  border: 0.5px solid var(--border);
+  border-radius: var(--r);
+  padding: 14px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+  animation: slideIn .2s ease;
+}
+@keyframes slideIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+.ticket-card:active { background: var(--surface2); }
+.ticket-icon { width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0; }
+.ticket-info { flex: 1; min-width: 0; }
+.ticket-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ticket-date { font-size: 11px; color: var(--text3); font-family: var(--mono); margin-top: 2px; }
+.ticket-right { text-align: right; flex-shrink: 0; }
+.ticket-amount { font-size: 15px; font-weight: 600; font-family: var(--mono); }
+.cat-badge { font-size: 10px; padding: 2px 7px; border-radius: 20px; margin-top: 3px; display: inline-block; font-weight: 500; }
+
+/* ── FAB ── */
+.fab-wrap { position: fixed; bottom: 28px; right: 24px; z-index: 10; }
+.fab {
+  width: 60px; height: 60px; border-radius: 18px;
+  background: var(--accent); border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 8px 24px rgba(124,106,247,0.4);
+  transition: transform .1s, box-shadow .1s;
+}
+.fab:active { transform: scale(0.95); box-shadow: 0 4px 12px rgba(124,106,247,0.3); }
+.fab svg { width: 26px; height: 26px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ── CAMERA SCREEN ── */
+#screen-camera { background: #000; position: relative; }
+.cam-header {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 10;
+  padding: 52px 20px 16px;
+  display: flex; align-items: center; gap: 14px;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.7) 0%, transparent 100%);
+}
+.cam-back { width: 38px; height: 38px; border-radius: 50%; background: rgba(255,255,255,0.15); border: none; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.cam-back svg { width: 18px; height: 18px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.cam-title { color: #fff; font-size: 16px; font-weight: 500; }
+
+#videoEl { width: 100%; height: 100%; object-fit: cover; }
+
+.cam-overlay {
+  position: absolute; inset: 0; z-index: 5;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.viewfinder {
+  width: 78%; max-width: 300px;
+  aspect-ratio: 3/2;
+  position: relative;
+}
+.vf-corner { position: absolute; width: 22px; height: 22px; }
+.vf-corner.tl { top: 0; left: 0; border-top: 3px solid var(--accent2); border-left: 3px solid var(--accent2); border-radius: 4px 0 0 0; }
+.vf-corner.tr { top: 0; right: 0; border-top: 3px solid var(--accent2); border-right: 3px solid var(--accent2); border-radius: 0 4px 0 0; }
+.vf-corner.bl { bottom: 0; left: 0; border-bottom: 3px solid var(--accent2); border-left: 3px solid var(--accent2); border-radius: 0 0 0 4px; }
+.vf-corner.br { bottom: 0; right: 0; border-bottom: 3px solid var(--accent2); border-right: 3px solid var(--accent2); border-radius: 0 0 4px 0; }
+.scan-line {
+  position: absolute; left: 4px; right: 4px; height: 2px;
+  background: linear-gradient(to right, transparent, var(--accent2), transparent);
+  animation: scan 2.5s ease-in-out infinite;
+  top: 0;
+}
+@keyframes scan { 0%,100% { top: 4px; } 50% { top: calc(100% - 6px); } }
+.cam-hint { color: rgba(255,255,255,0.6); font-size: 12px; margin-top: 20px; text-align: center; }
+
+.cam-controls {
+  position: absolute; bottom: 0; left: 0; right: 0; z-index: 10;
+  padding: 24px 24px 44px;
+  background: linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 100%);
+  display: flex; align-items: center; justify-content: space-around;
+}
+.shutter { width: 70px; height: 70px; border-radius: 50%; background: #fff; border: 4px solid rgba(255,255,255,0.3); cursor: pointer; transition: transform .1s; flex-shrink: 0; }
+.shutter:active { transform: scale(0.93); }
+.gallery-btn { width: 50px; height: 50px; border-radius: 14px; background: rgba(255,255,255,0.15); border: 0.5px solid rgba(255,255,255,0.2); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.gallery-btn svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#fileInput { display: none; }
+#canvas { display: none; }
+
+/* ── PROCESSING SCREEN ── */
+#screen-processing { align-items: center; justify-content: center; background: var(--bg); }
+.processing-card {
+  width: calc(100% - 48px); max-width: 360px;
+  background: var(--surface);
+  border: 0.5px solid var(--border2);
+  border-radius: var(--r2);
+  padding: 28px 24px;
+  text-align: center;
+}
+.ai-spinner {
+  width: 64px; height: 64px; border-radius: 18px;
+  background: var(--bg3);
+  border: 0.5px solid var(--border2);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 20px;
+  position: relative;
+}
+.ai-spinner::after {
+  content: '';
+  position: absolute; inset: -4px;
+  border-radius: 22px;
+  border: 2px solid transparent;
+  border-top-color: var(--accent);
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.ai-spinner span { font-size: 28px; }
+.processing-title { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+.processing-sub { font-size: 13px; color: var(--text2); line-height: 1.5; }
+.processing-steps { margin-top: 20px; text-align: left; }
+.step-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 0.5px solid var(--border); }
+.step-row:last-child { border-bottom: none; }
+.step-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.step-dot.done { background: var(--green); }
+.step-dot.active { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
+.step-dot.pending { background: var(--text3); }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+.step-text { font-size: 13px; color: var(--text2); }
+
+/* ── CONFIRM SCREEN ── */
+#screen-confirm { background: var(--bg); }
+.confirm-header {
+  padding: 52px 20px 16px;
+  display: flex; align-items: center; gap: 14px;
+  flex-shrink: 0;
+}
+.back-btn { width: 38px; height: 38px; border-radius: 12px; background: var(--surface); border: 0.5px solid var(--border2); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.back-btn svg { width: 18px; height: 18px; stroke: var(--text2); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.confirm-title { font-size: 18px; font-weight: 600; }
+.confirm-body { flex: 1; overflow-y: auto; padding: 0 20px 16px; -webkit-overflow-scrolling: touch; }
+.ticket-preview {
+  background: var(--surface);
+  border: 0.5px solid var(--border2);
+  border-radius: var(--r2);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+.preview-top { padding: 18px 18px 14px; display: flex; align-items: center; gap: 12px; border-bottom: 0.5px solid var(--border); }
+.preview-icon { width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0; }
+.preview-shop { font-size: 18px; font-weight: 600; }
+.preview-date { font-size: 12px; color: var(--text2); font-family: var(--mono); margin-top: 2px; }
+.field-list { padding: 6px 0; }
+.field-item { display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; border-bottom: 0.5px solid var(--border); }
+.field-item:last-child { border-bottom: none; }
+.field-label { font-size: 12px; color: var(--text3); text-transform: uppercase; letter-spacing: .06em; }
+.field-value { font-size: 14px; font-weight: 500; font-family: var(--mono); }
+.field-value.big { font-size: 22px; font-weight: 600; color: var(--accent2); }
+.edit-hint { font-size: 11px; color: var(--text3); margin-bottom: 4px; }
+.editable-field { background: var(--bg3); border: 0.5px solid var(--border2); border-radius: 10px; padding: 10px 14px; font-family: var(--sans); font-size: 14px; color: var(--text); width: 100%; margin-bottom: 10px; outline: none; }
+.editable-field:focus { border-color: var(--accent); }
+.cat-selector { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px; }
+.cat-opt { background: var(--surface); border: 0.5px solid var(--border); border-radius: 12px; padding: 10px 8px; text-align: center; cursor: pointer; font-size: 12px; font-weight: 500; transition: all .15s; }
+.cat-opt.selected { border-color: var(--accent); background: rgba(124,106,247,0.15); color: var(--accent2); }
+.cat-opt span { display: block; font-size: 20px; margin-bottom: 4px; }
+.items-list { background: var(--bg3); border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; font-size: 13px; color: var(--text2); line-height: 1.8; }
+
+.save-btn {
+  width: 100%; padding: 16px;
+  background: var(--accent);
+  color: #fff; font-size: 16px; font-weight: 600;
+  border: none; border-radius: var(--r); cursor: pointer;
+  font-family: var(--sans);
+  transition: transform .1s, box-shadow .1s;
+  box-shadow: 0 8px 24px rgba(124,106,247,0.35);
+  margin-bottom: 10px;
+}
+.save-btn:active { transform: scale(0.98); }
+.save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.discard-btn { width: 100%; padding: 14px; background: transparent; color: var(--text2); font-size: 14px; border: 0.5px solid var(--border2); border-radius: var(--r); cursor: pointer; font-family: var(--sans); margin-bottom: 24px; }
+
+/* ── SUCCESS ── */
+.success-toast {
+  position: fixed; bottom: 32px; left: 20px; right: 20px;
+  background: var(--green); color: #fff;
+  padding: 14px 18px; border-radius: var(--r);
+  font-size: 14px; font-weight: 500;
+  display: flex; align-items: center; gap: 10px;
+  transform: translateY(80px); opacity: 0;
+  transition: all .3s cubic-bezier(.34,1.56,.64,1);
+  z-index: 100;
+}
+.success-toast.show { transform: none; opacity: 1; }
+
+/* ── CONFIG SCREEN ── */
+#screen-config { background: var(--bg); }
+.config-header { padding: 52px 20px 20px; flex-shrink: 0; }
+.config-body { flex: 1; overflow-y: auto; padding: 0 20px 40px; }
+.config-section { margin-bottom: 24px; }
+.config-section-title { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: .1em; margin-bottom: 10px; }
+.config-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--r); overflow: hidden; }
+.config-row { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 0.5px solid var(--border); }
+.config-row:last-child { border-bottom: none; }
+.config-row-label { font-size: 14px; }
+.config-row-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+.config-input { background: var(--bg3); border: 0.5px solid var(--border2); border-radius: 8px; padding: 8px 12px; color: var(--text); font-size: 13px; font-family: var(--mono); width: 100%; margin-top: 8px; outline: none; }
+.config-input:focus { border-color: var(--accent); }
+.config-save { background: var(--accent); color: #fff; border: none; border-radius: 12px; padding: 12px 20px; font-size: 14px; font-weight: 500; cursor: pointer; font-family: var(--sans); margin-top: 10px; width: 100%; }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; }
+.status-dot.ok { background: var(--green); }
+.status-dot.bad { background: var(--red); }
+.status-dot.unknown { background: var(--text3); }
+
+/* ── EMPTY ── */
+.empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 24px; text-align: center; }
+.empty-icon { font-size: 52px; margin-bottom: 16px; opacity: 0.5; }
+.empty-title { font-size: 16px; font-weight: 500; color: var(--text2); margin-bottom: 6px; }
+.empty-sub { font-size: 13px; color: var(--text3); }
+
+/* scrollbar */
+::-webkit-scrollbar { width: 0; }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     PANTALLA 1: INICIO / LISTA
+══════════════════════════════════════════ -->
+<div id="screen-home" class="screen active">
+  <div class="header">
+    <div class="header-row">
+      <div class="app-name">Ticket<span>Scan</span></div>
+      <div class="header-btn" onclick="showScreen('config')" title="Configuración">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="stats-bar">
+    <div class="stat"><div class="stat-val" id="statTotal">0,00 €</div><div class="stat-lbl">Este mes</div></div>
+    <div class="stat"><div class="stat-val" id="statCount">0</div><div class="stat-lbl">Tickets</div></div>
+    <div class="stat"><div class="stat-val" id="statAvg">0,00 €</div><div class="stat-lbl">Media</div></div>
+  </div>
+  <div class="list-wrap" id="ticketList">
+    <div class="empty-state">
+      <div class="empty-icon">🧾</div>
+      <div class="empty-title">Sin tickets todavía</div>
+      <div class="empty-sub">Pulsa el botón + para escanear<br>tu primer ticket de compra</div>
+    </div>
+  </div>
+  <div class="fab-wrap">
+    <button class="fab" onclick="startCamera()" title="Escanear ticket">
+      <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+    </button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PANTALLA 2: CÁMARA
+══════════════════════════════════════════ -->
+<div id="screen-camera" class="screen">
+  <div class="cam-header">
+    <button class="cam-back" onclick="stopCamera()">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="cam-title">Escanear ticket</div>
+  </div>
+  <video id="videoEl" autoplay playsinline muted></video>
+  <div class="cam-overlay">
+    <div class="viewfinder">
+      <div class="vf-corner tl"></div>
+      <div class="vf-corner tr"></div>
+      <div class="vf-corner bl"></div>
+      <div class="vf-corner br"></div>
+      <div class="scan-line"></div>
+    </div>
+    <div class="cam-hint">Encuadra el ticket completo<br>dentro del marco</div>
+  </div>
+  <div class="cam-controls">
+    <div class="gallery-btn" onclick="document.getElementById('fileInput').click()" title="Galería">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    </div>
+    <button class="shutter" onclick="capturePhoto()" title="Hacer foto"></button>
+    <div style="width:50px"></div>
+  </div>
+  <canvas id="canvas"></canvas>
+  <input type="file" id="fileInput" accept="image/*" capture="environment" onchange="handleFileSelect(event)">
+</div>
+
+<!-- ══════════════════════════════════════════
+     PANTALLA 3: PROCESANDO IA
+══════════════════════════════════════════ -->
+<div id="screen-processing" class="screen">
+  <div class="processing-card">
+    <div class="ai-spinner"><span>🤖</span></div>
+    <div class="processing-title">Analizando ticket</div>
+    <div class="processing-sub">La IA está extrayendo los datos<br>de tu ticket automáticamente</div>
+    <div class="processing-steps" id="processingSteps">
+      <div class="step-row"><div class="step-dot active" id="step1dot"></div><div class="step-text">Preparando imagen...</div></div>
+      <div class="step-row"><div class="step-dot pending" id="step2dot"></div><div class="step-text">Enviando a Claude IA...</div></div>
+      <div class="step-row"><div class="step-dot pending" id="step3dot"></div><div class="step-text">Extrayendo datos del ticket...</div></div>
+      <div class="step-row"><div class="step-dot pending" id="step4dot"></div><div class="step-text">Clasificando categoría...</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PANTALLA 4: CONFIRMAR Y GUARDAR
+══════════════════════════════════════════ -->
+<div id="screen-confirm" class="screen">
+  <div class="confirm-header">
+    <button class="back-btn" onclick="showScreen('home')">
+      <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    </button>
+    <div class="confirm-title">Confirmar ticket</div>
+  </div>
+  <div class="confirm-body">
+    <div class="ticket-preview">
+      <div class="preview-top">
+        <div class="preview-icon" id="previewIcon">🛒</div>
+        <div>
+          <div class="preview-shop" id="previewShop">—</div>
+          <div class="preview-date" id="previewDate">—</div>
+        </div>
+      </div>
+      <div class="field-list">
+        <div class="field-item">
+          <div class="field-label">Total</div>
+          <div class="field-value big" id="previewTotal">—</div>
+        </div>
+        <div class="field-item">
+          <div class="field-label">Método de pago</div>
+          <div class="field-value" id="previewPayment">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-bottom:10px;">
+      <div class="edit-hint">Establecimiento (editable)</div>
+      <input class="editable-field" id="editShop" type="text" placeholder="Nombre del establecimiento">
+    </div>
+    <div style="margin-bottom:10px;">
+      <div class="edit-hint">Fecha (editable)</div>
+      <input class="editable-field" id="editDate" type="date">
+    </div>
+    <div style="margin-bottom:10px;">
+      <div class="edit-hint">Total (editable)</div>
+      <input class="editable-field" id="editTotal" type="number" step="0.01" placeholder="0.00">
+    </div>
+
+    <div class="edit-hint" style="margin-bottom:8px;">Categoría</div>
+    <div class="cat-selector" id="catSelector">
+      <div class="cat-opt selected" data-cat="Alimentación" onclick="selectCat(this)"><span>🛒</span>Alimentación</div>
+      <div class="cat-opt" data-cat="Salud" onclick="selectCat(this)"><span>💊</span>Salud</div>
+      <div class="cat-opt" data-cat="Hogar" onclick="selectCat(this)"><span>🏠</span>Hogar</div>
+      <div class="cat-opt" data-cat="Ropa" onclick="selectCat(this)"><span>👕</span>Ropa</div>
+      <div class="cat-opt" data-cat="Transporte" onclick="selectCat(this)"><span>🚗</span>Transporte</div>
+      <div class="cat-opt" data-cat="Restaurante" onclick="selectCat(this)"><span>🍽️</span>Restaurante</div>
+      <div class="cat-opt" data-cat="Tecnología" onclick="selectCat(this)"><span>💻</span>Tecnología</div>
+      <div class="cat-opt" data-cat="Otros" onclick="selectCat(this)"><span>📦</span>Otros</div>
+    </div>
+
+    <div class="edit-hint" style="margin-bottom:8px;">Artículos detectados</div>
+    <div class="items-list" id="previewItems">—</div>
+
+    <button class="save-btn" id="saveBtn" onclick="saveTicket()">
+      💾 Guardar en Google Sheets
+    </button>
+    <button class="discard-btn" onclick="showScreen('home')">Descartar</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     PANTALLA 5: CONFIGURACIÓN
+══════════════════════════════════════════ -->
+<div id="screen-config" class="screen">
+  <div class="config-header">
+    <div class="header-row">
+      <div style="font-size:20px; font-weight:600;">Configuración</div>
+      <div class="header-btn" onclick="showScreen('home')">
+        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </div>
+    </div>
+  </div>
+  <div class="config-body">
+    <div class="config-section">
+      <div class="config-section-title">Google Sheets</div>
+      <div class="config-card">
+        <div class="config-row">
+          <div>
+            <div class="config-row-label">URL del Apps Script</div>
+            <div class="config-row-sub">Pega aquí la URL del Web App</div>
+          </div>
+          <div class="status-dot unknown" id="sheetsStatus"></div>
+        </div>
+        <div style="padding: 0 16px 14px;">
+          <input class="config-input" id="appsScriptUrl" type="url" placeholder="https://script.google.com/macros/s/...">
+        </div>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">API de Claude (IA)</div>
+      <div class="config-card">
+        <div class="config-row">
+          <div>
+            <div class="config-row-label">Clave API de Anthropic</div>
+            <div class="config-row-sub">Necesaria para analizar tickets</div>
+          </div>
+          <div class="status-dot unknown" id="apiStatus"></div>
+        </div>
+        <div style="padding: 0 16px 14px;">
+          <input class="config-input" id="apiKey" type="password" placeholder="sk-ant-...">
+        </div>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">Información de la hoja</div>
+      <div class="config-card" style="padding:14px 16px; font-size:13px; color:var(--text2); line-height:1.7;">
+        <strong style="color:var(--text); font-size:12px; text-transform:uppercase; letter-spacing:.06em; display:block; margin-bottom:6px;">ID de tu Google Sheet:</strong>
+        <div style="font-family:var(--mono); font-size:11px; color:var(--accent2); word-break:break-all; background:var(--bg3); padding:8px 10px; border-radius:8px;">112eKLBbsl7zAi5YFm3i5ukJHTCdJAdOEU-YhNopCRsQ</div>
+        <div style="margin-top:10px; font-size:12px;">Esta hoja fue creada para ti. Una vez configures el Apps Script, los tickets se guardarán ahí automáticamente.</div>
+      </div>
+    </div>
+
+    <div class="config-section">
+      <div class="config-section-title">Ayuda rápida</div>
+      <div class="config-card">
+        <div class="config-row" style="flex-direction:column; align-items:flex-start; gap:6px;">
+          <div class="config-row-label">Pasos de configuración</div>
+          <ol style="font-size:12px; color:var(--text2); line-height:2; padding-left:16px;">
+            <li>Abre tu Google Sheet con el ID de arriba</li>
+            <li>Ve a <strong style="color:var(--text)">Extensiones → Apps Script</strong></li>
+            <li>Pega el código que te dio el asistente</li>
+            <li>Publica como <strong style="color:var(--text)">App Web → Cualquiera</strong></li>
+            <li>Copia la URL y pégala arriba</li>
+            <li>Añade tu clave API de Anthropic</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+
+    <button class="config-save" onclick="saveConfig()">Guardar configuración</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="success-toast" id="toast">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+  <span id="toastMsg">Ticket guardado correctamente</span>
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────
+let config = JSON.parse(localStorage.getItem('ts_config') || '{}');
+let tickets = JSON.parse(localStorage.getItem('ts_tickets') || '[]');
+let currentExtracted = null;
+let mediaStream = null;
+
+const CATEGORIES = {
+  'Alimentación': { icon: '🛒', color: '#1a3a1a', accent: '#34d399' },
+  'Salud':        { icon: '💊', color: '#1a2a3a', accent: '#60a5fa' },
+  'Hogar':        { icon: '🏠', color: '#3a2a1a', accent: '#fbbf24' },
+  'Ropa':         { icon: '👕', color: '#2a1a3a', accent: '#a78bfa' },
+  'Transporte':   { icon: '🚗', color: '#1a3a3a', accent: '#2dd4bf' },
+  'Restaurante':  { icon: '🍽️', color: '#3a1a1a', accent: '#f87171' },
+  'Tecnología':   { icon: '💻', color: '#1a1a3a', accent: '#818cf8' },
+  'Otros':        { icon: '📦', color: '#2a2a2a', accent: '#9ca3af' },
+};
+
+// ─── NAVEGACIÓN ───────────────────────────
+function showScreen(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + name).classList.add('active');
+}
+
+// ─── STATS ────────────────────────────────
+function updateStats() {
+  const now = new Date();
+  const thisMonth = tickets.filter(t => {
+    const d = new Date(t.fecha);
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+  });
+  const total = thisMonth.reduce((s, t) => s + parseFloat(t.total || 0), 0);
+  const count = thisMonth.length;
+  document.getElementById('statTotal').textContent = total.toFixed(2).replace('.', ',') + ' €';
+  document.getElementById('statCount').textContent = count;
+  document.getElementById('statAvg').textContent = (count ? (total / count) : 0).toFixed(2).replace('.', ',') + ' €';
+}
+
+// ─── LISTA ────────────────────────────────
+function renderList() {
+  updateStats();
+  const wrap = document.getElementById('ticketList');
+  if (!tickets.length) {
+    wrap.innerHTML = `<div class="empty-state"><div class="empty-icon">🧾</div><div class="empty-title">Sin tickets todavía</div><div class="empty-sub">Pulsa el botón + para escanear<br>tu primer ticket de compra</div></div>`;
+    return;
+  }
+  // ordenar por fecha desc
+  const sorted = [...tickets].sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
+  let html = '';
+  let lastMonth = '';
+  sorted.forEach(t => {
+    const d = new Date(t.fecha);
+    const month = d.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+    if (month !== lastMonth) {
+      html += `<div class="month-label">${month.charAt(0).toUpperCase() + month.slice(1)}</div>`;
+      lastMonth = month;
+    }
+    const cat = CATEGORIES[t.categoria] || CATEGORIES['Otros'];
+    const badgeStyle = `background:${cat.color}; color:${cat.accent};`;
+    html += `<div class="ticket-card">
+      <div class="ticket-icon" style="background:${cat.color}">${cat.icon}</div>
+      <div class="ticket-info">
+        <div class="ticket-name">${t.establecimiento}</div>
+        <div class="ticket-date">${d.toLocaleDateString('es-ES')}</div>
+      </div>
+      <div class="ticket-right">
+        <div class="ticket-amount">${parseFloat(t.total).toFixed(2).replace('.', ',')} €</div>
+        <div class="cat-badge" style="${badgeStyle}">${t.categoria}</div>
+      </div>
+    </div>`;
+  });
+  wrap.innerHTML = html;
+}
+
+// ─── CÁMARA ───────────────────────────────
+async function startCamera() {
+  showScreen('camera');
+  try {
+    mediaStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+    });
+    document.getElementById('videoEl').srcObject = mediaStream;
+  } catch (e) {
+    alert('No se pudo acceder a la cámara. Usa el botón de galería.');
+  }
+}
+
+function stopCamera() {
+  if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+  showScreen('home');
+}
+
+function capturePhoto() {
+  const video = document.getElementById('videoEl');
+  const canvas = document.getElementById('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  const imageData = canvas.toDataURL('image/jpeg', 0.85);
+  if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+  processImage(imageData);
+}
+
+function handleFileSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => processImage(ev.target.result);
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+// ─── PROCESADO CON IA ─────────────────────
+async function processImage(imageDataUrl) {
+  showScreen('processing');
+  setStep(1);
+
+  const apiKey = config.apiKey || document.getElementById('apiKey').value;
+  if (!apiKey) {
+    setTimeout(() => {
+      alert('⚠️ Configura tu clave API de Anthropic primero.\nVe a Configuración (⚙️) e introduce tu clave sk-ant-...');
+      showScreen('home');
+    }, 500);
+    return;
+  }
+
+  await delay(600); setStep(2);
+
+  const base64 = imageDataUrl.split(',')[1];
+  const mediaType = imageDataUrl.split(';')[0].split(':')[1];
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-5',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: mediaType, data: base64 }
+            },
+            {
+              type: 'text',
+              text: `Analiza este ticket de compra y extrae los datos. Responde SOLO con un JSON válido sin ningún texto adicional, sin comillas de código, exactamente este formato:
+{
+  "establecimiento": "nombre del comercio",
+  "fecha": "YYYY-MM-DD",
+  "total": 12.34,
+  "metodo_pago": "Efectivo/Tarjeta/Bizum/etc",
+  "categoria": "Alimentación|Salud|Hogar|Ropa|Transporte|Restaurante|Tecnología|Otros",
+  "articulos": "lista breve de artículos principales separados por coma",
+  "num_articulos": 5
+}
+Si algún dato no es legible, usa null. La categoría debe ser una de las opciones indicadas basándote en el tipo de tienda y productos.`
+            }
+          ]
+        }]
+      })
+    });
+
+    setStep(3);
+    await delay(500);
+
+    const data = await response.json();
+    const text = data.content[0].text.trim();
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+
+    setStep(4);
+    await delay(400);
+
+    currentExtracted = parsed;
+    showConfirmScreen(parsed);
+
+  } catch (err) {
+    console.error(err);
+    alert('Error al procesar el ticket: ' + err.message + '\n\nAsegúrate de que la clave API es correcta.');
+    showScreen('home');
+  }
+}
+
+function setStep(n) {
+  for (let i = 1; i <= 4; i++) {
+    const dot = document.getElementById('step' + i + 'dot');
+    if (i < n) dot.className = 'step-dot done';
+    else if (i === n) dot.className = 'step-dot active';
+    else dot.className = 'step-dot pending';
+  }
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ─── PANTALLA CONFIRMAR ───────────────────
+function showConfirmScreen(data) {
+  const cat = data.categoria || 'Otros';
+  const catInfo = CATEGORIES[cat] || CATEGORIES['Otros'];
+
+  document.getElementById('previewIcon').textContent = catInfo.icon;
+  document.getElementById('previewIcon').style.background = catInfo.color;
+  document.getElementById('previewShop').textContent = data.establecimiento || '—';
+  document.getElementById('previewDate').textContent = data.fecha ? new Date(data.fecha + 'T12:00:00').toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) : '—';
+  document.getElementById('previewTotal').textContent = data.total ? data.total.toFixed(2).replace('.', ',') + ' €' : '—';
+  document.getElementById('previewPayment').textContent = data.metodo_pago || '—';
+  document.getElementById('editShop').value = data.establecimiento || '';
+  document.getElementById('editDate').value = data.fecha || new Date().toISOString().split('T')[0];
+  document.getElementById('editTotal').value = data.total || '';
+  document.getElementById('previewItems').textContent = data.articulos || '—';
+
+  document.querySelectorAll('.cat-opt').forEach(el => {
+    el.classList.toggle('selected', el.dataset.cat === cat);
+  });
+
+  showScreen('confirm');
+}
+
+function selectCat(el) {
+  document.querySelectorAll('.cat-opt').forEach(e => e.classList.remove('selected'));
+  el.classList.add('selected');
+  const cat = el.dataset.cat;
+  const catInfo = CATEGORIES[cat];
+  document.getElementById('previewIcon').textContent = catInfo.icon;
+  document.getElementById('previewIcon').style.background = catInfo.color;
+}
+
+// ─── GUARDAR ──────────────────────────────
+async function saveTicket() {
+  const btn = document.getElementById('saveBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ Guardando...';
+
+  const cat = document.querySelector('.cat-opt.selected')?.dataset.cat || 'Otros';
+  const ticket = {
+    id: Date.now().toString(),
+    establecimiento: document.getElementById('editShop').value,
+    fecha: document.getElementById('editDate').value,
+    total: parseFloat(document.getElementById('editTotal').value) || 0,
+    categoria: cat,
+    articulos: document.getElementById('previewItems').textContent,
+    metodo_pago: currentExtracted?.metodo_pago || '—',
+    num_articulos: currentExtracted?.num_articulos || 0,
+    registrado: new Date().toISOString()
+  };
+
+  // Guardar local
+  tickets.unshift(ticket);
+  localStorage.setItem('ts_tickets', JSON.stringify(tickets));
+
+  // Enviar a Google Sheets via Apps Script (si está configurado)
+  const scriptUrl = config.appsScriptUrl || document.getElementById('appsScriptUrl').value;
+  if (scriptUrl) {
+    try {
+      await fetch(scriptUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ticket)
+      });
+    } catch (e) {
+      console.warn('No se pudo enviar a Sheets:', e);
+    }
+  }
+
+  btn.disabled = false;
+  btn.textContent = '💾 Guardar en Google Sheets';
+  showToast('✅ Ticket guardado correctamente');
+  renderList();
+  setTimeout(() => showScreen('home'), 600);
+}
+
+// ─── CONFIG ───────────────────────────────
+function saveConfig() {
+  config.apiKey = document.getElementById('apiKey').value;
+  config.appsScriptUrl = document.getElementById('appsScriptUrl').value;
+  localStorage.setItem('ts_config', JSON.stringify(config));
+  document.getElementById('apiStatus').className = 'status-dot ' + (config.apiKey ? 'ok' : 'bad');
+  document.getElementById('sheetsStatus').className = 'status-dot ' + (config.appsScriptUrl ? 'ok' : 'bad');
+  showToast('Configuración guardada');
+  setTimeout(() => showScreen('home'), 600);
+}
+
+function loadConfig() {
+  if (config.apiKey) document.getElementById('apiKey').value = config.apiKey;
+  if (config.appsScriptUrl) document.getElementById('appsScriptUrl').value = config.appsScriptUrl;
+  document.getElementById('apiStatus').className = 'status-dot ' + (config.apiKey ? 'ok' : 'bad');
+  document.getElementById('sheetsStatus').className = 'status-dot ' + (config.appsScriptUrl ? 'ok' : 'bad');
+}
+
+// ─── TOAST ────────────────────────────────
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  document.getElementById('toastMsg').textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ─── INIT ─────────────────────────────────
+loadConfig();
+renderList();
+</script>
+</body>
+</html>
